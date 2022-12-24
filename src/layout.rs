@@ -1,21 +1,21 @@
-use style::{Display, Style};
+use css::{
+    parse_attr_style, Declaration, Rule, Selector, SimpleSelector, Specificity, Stylesheet, Value,
+};
+use default_style;
 use dom::{ElementData, LayoutType, Node, NodeType};
 use float::Floats;
 use font::{Font, FontSlant, FontWeight};
 use inline::LineMaker;
 use style;
-use default_style;
-use css::{parse_attr_style, Declaration, Rule, Selector, SimpleSelector, Specificity, Stylesheet,
-          Value};
+use style::{Display, Style};
 
 use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::ops::Range;
 
-use cairo;
-use pango;
-use gdk_pixbuf;
+use gtk::{cairo, gdk_pixbuf, pango};
+// use gdk_pixbuf;
 use gtk;
 
 use app_units::Au;
@@ -188,10 +188,11 @@ fn build_layout_tree(
                     }
                 } else {
                     inherited_property.clone()
-                }.property
-                    .into_iter()
-                    .filter(|&(ref name, _)| name != "float")
-                    .collect(),
+                }
+                .property
+                .into_iter()
+                .filter(|&(ref name, _)| name != "float")
+                .collect(),
             )
         }
     };
@@ -433,7 +434,9 @@ fn matches_simple_selector(elem: &ElementData, selector: &SimpleSelector) -> boo
 }
 
 use std::cell::RefCell;
-thread_local!(pub static LAYOUTBOX: RefCell<Option<LayoutBox>> = { RefCell::new(None) };);
+thread_local!(
+    pub static LAYOUTBOX: RefCell<Option<LayoutBox>> = { RefCell::new(None) };
+);
 
 /// Transform a style tree into a layout tree.
 pub fn layout_tree(

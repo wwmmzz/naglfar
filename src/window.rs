@@ -1,28 +1,24 @@
-extern crate cairo;
-extern crate gdk_pixbuf;
 extern crate gtk;
-extern crate pango;
-extern crate pangocairo;
 
-use gtk::{Inhibit, ObjectExt, WidgetExt, traits::*};
-use gtk::ContainerExt;
-
-use glib::prelude::*; // or `use gtk::prelude::*;`
-use glib;
-
-use gdk::{ContextExt, Cursor, CursorType, Event, EventButton, EventMask, EventMotion, RGBA};
-use gdk_pixbuf::{InterpType, PixbufExt};
-
-use cairo::Context;
-use pango::LayoutExt;
+use gtk::prelude::WidgetExtManual;
+use gtk::{
+    cairo,
+    cairo::{Context, Format, ImageSurface},
+    gdk::{prelude::*, Cursor, CursorType, Event, EventButton, EventMask, EventMotion, RGBA},
+    gdk_pixbuf::InterpType,
+    pango,
+    prelude::WidgetExt,
+    traits::*,
+    Inhibit,
+};
 
 use std::{cell::RefCell, collections::HashMap};
 
+use css::{px2pt, TextDecoration};
+use font::FONT_DESC;
+use interface::update_html_source;
 use layout::Rect;
 use painter::{DisplayCommand, DisplayList};
-use font::FONT_DESC;
-use css::{TextDecoration, px2pt};
-use interface::update_html_source;
 
 #[derive(Clone, Debug)]
 pub enum AnkerKind {
@@ -31,10 +27,13 @@ pub enum AnkerKind {
 }
 
 thread_local!(
-    pub static ANKERS: RefCell<HashMap<Rect, AnkerKind>> = { RefCell::new(HashMap::with_capacity(8)) };
+    pub static ANKERS: RefCell<HashMap<Rect, AnkerKind>> =
+        { RefCell::new(HashMap::with_capacity(8)) };
     // HashMap<URL Fragment(id), y coordinate of the content>
-    pub static URL_FRAGMENTS: RefCell<HashMap<String, f64>> = { RefCell::new(HashMap::with_capacity(8)) };
-    pub static BUTTONS: RefCell<HashMap<usize, gtk::Button>> = { RefCell::new(HashMap::with_capacity(8)) };
+    pub static URL_FRAGMENTS: RefCell<HashMap<String, f64>> =
+        { RefCell::new(HashMap::with_capacity(8)) };
+    pub static BUTTONS: RefCell<HashMap<usize, gtk::Button>> =
+        { RefCell::new(HashMap::with_capacity(8)) };
     pub static SURFACE_CACHE: RefCell<Option<cairo::ImageSurface>> = { RefCell::new(None) };
 );
 
@@ -53,24 +52,14 @@ impl RenderingWindow {
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
         window.set_title("Naglfar");
         window.set_default_size(width, height);
-        window.override_background_color(
-            gtk::StateFlags::from_bits(gtk::StateFlags::NORMAL.bits()).unwrap(),
-            Some(&RGBA {
-                red: 1.0,
-                green: 1.0,
-                blue: 1.0,
-                alpha: 1.0,
-            }),
-        );
 
         let drawing_area = gtk::DrawingArea::new();
         drawing_area.set_size_request(width, height);
 
-        let layout = gtk::Layout::new(None, None);
+        let layout = gtk::Layout::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
 
         let overlay = gtk::Overlay::new();
         {
-            use gtk::OverlayExt;
             overlay.add_overlay(&drawing_area);
             overlay.set_child_index(&drawing_area, 0);
             overlay.add_overlay(&layout);
@@ -82,153 +71,127 @@ impl RenderingWindow {
         let entry = gtk::Entry::new();
         vbox.pack_start(&entry, false, false, 0);
 
-        entry
-            .connect("activate", true, |args| {
-                let entry = args[0]
-                    .clone()
-                    .downcast::<glib::Object>()
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .downcast::<gtk::Entry>()
-                    .unwrap();
-                let vbox = entry.get_parent().unwrap().downcast::<gtk::Box>().unwrap();
-                let scrolled_window = vbox.get_children()[1]
-                    .clone()
-                    .downcast::<gtk::ScrolledWindow>()
-                    .unwrap();
-                let viewport = scrolled_window
-                    .get_child()
-                    .unwrap()
-                    .downcast::<gtk::Viewport>()
-                    .unwrap();
-                let overlay = viewport
-                    .get_child()
-                    .unwrap()
-                    .downcast::<gtk::Overlay>()
-                    .unwrap();
-                let drawing_area = overlay.get_children()[0].clone();
+        entry.connect("activate", true, |args| {
+            let entry = args[0].clone().get::<gtk::Entry>().unwrap();
+            let vbox = entry.parent().unwrap().downcast::<gtk::Box>().unwrap();
+            let scrolled_window = vbox.children()[1]
+                .clone()
+                .downcast::<gtk::ScrolledWindow>()
+                .unwrap();
+            let viewport = scrolled_window
+                .child()
+                .unwrap()
+                .downcast::<gtk::Viewport>()
+                .unwrap();
+            let overlay = viewport
+                .child()
+                .unwrap()
+                .downcast::<gtk::Overlay>()
+                .unwrap();
+            let drawing_area = overlay.children()[0].clone();
 
-                let url = entry.get_text().unwrap();
-                println!("URL: {}", url);
+            let url = entry.text().to_string();
+            println!("URL: {}", url);
 
-                update_html_source(url);
-                ANKERS.with(|ankers| ankers.borrow_mut().clear());
-                SURFACE_CACHE.with(|sc| *sc.borrow_mut() = None);
+            update_html_source(url);
+            ANKERS.with(|ankers| ankers.borrow_mut().clear());
+            SURFACE_CACHE.with(|sc| *sc.borrow_mut() = None);
 
-                drawing_area.queue_draw();
+            drawing_area.queue_draw();
 
-                None
-            })
-            .unwrap();
+            None
+        });
 
-        let scrolled_window = gtk::ScrolledWindow::new(None, None);
+        let scrolled_window =
+            gtk::ScrolledWindow::new(gtk::Adjustment::NONE, gtk::Adjustment::NONE);
         scrolled_window.add(&overlay);
+
         vbox.pack_start(&scrolled_window, true, true, 0);
 
         window.add(&vbox);
-        overlay.add_events(
-            EventMask::POINTER_MOTION_MASK.bits() as i32
-                | EventMask::BUTTON_PRESS_MASK.bits() as i32,
-        );
+        overlay.add_events(EventMask::POINTER_MOTION_MASK | EventMask::BUTTON_PRESS_MASK);
+        overlay.connect("motion-notify-event", false, |args| {
+            // use gdk::WindowExt;
+            let overlay = args[0].clone().get::<gtk::Overlay>().unwrap();
+            let (x, y) = args[1]
+                .clone()
+                .get::<Event>()
+                .unwrap()
+                .downcast::<EventMotion>()
+                .unwrap()
+                .position();
 
-        overlay
-            .connect("motion-notify-event", false, |args| {
-                use gdk::WindowExt;
-                let overlay = args[0]
-                    .clone()
-                    .downcast::<gtk::Overlay>()
-                    .unwrap()
-                    .get()
-                    .unwrap();
-                let (x, y) = args[1]
-                    .clone()
-                    .downcast::<Event>()
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .downcast::<EventMotion>()
-                    .unwrap()
-                    .get_position();
+            ANKERS.with(|ankers| {
+                let window = overlay.window().unwrap();
+                if (&*ankers.borrow()).iter().any(|(rect, _)| {
+                    rect.x.to_f64_px() <= x
+                        && x <= rect.x.to_f64_px() + rect.width.to_f64_px()
+                        && rect.y.to_f64_px() <= y
+                        && y <= rect.y.to_f64_px() + rect.height.to_f64_px()
+                }) {
+                    // window.cursor();
+                    // window.set_cursor(Some(&Cursor::new(CursorType::Hand1)));
+                } else {
+                    // TODO: This is executed many times. It's inefficient.
+                    // window.set_cursor(Some(&Cursor::new(CursorType::LeftPtr)));
+                }
+            });
+            Some(true.to_value())
+        });
 
-                ANKERS.with(|ankers| {
-                    let window = overlay.get_window().unwrap();
-                    if (&*ankers.borrow()).iter().any(|(rect, _)| {
-                        rect.x.to_f64_px() <= x && x <= rect.x.to_f64_px() + rect.width.to_f64_px()
-                            && rect.y.to_f64_px() <= y
-                            && y <= rect.y.to_f64_px() + rect.height.to_f64_px()
-                    }) {
-                        window.set_cursor(Some(&Cursor::new(CursorType::Hand1)));
-                    } else {
-                        // TODO: This is executed many times. It's inefficient.
-                        window.set_cursor(Some(&Cursor::new(CursorType::LeftPtr)));
-                    }
-                });
-                Some(true.to_value())
-            })
-            .unwrap();
+        overlay.connect("button-press-event", false, |args| {
+            let overlay = args[0].clone().get::<gtk::Overlay>().unwrap();
 
-        overlay
-            .connect("button-press-event", false, |args| {
-                let overlay = args[0]
-                    .clone()
-                    .downcast::<gtk::Overlay>()
-                    .unwrap()
-                    .get()
-                    .unwrap();
-                let (clicked_x, clicked_y) = args[1]
-                    .clone()
-                    .downcast::<Event>()
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .downcast::<EventButton>()
-                    .unwrap()
-                    .get_position();
+            let (clicked_x, clicked_y) = args[1]
+                .clone()
+                .get::<Event>()
+                .unwrap()
+                .downcast::<EventButton>()
+                .unwrap()
+                .position();
 
-                ANKERS.with(|ankers| {
-                    let mut jump_to_another_page = false;
+            ANKERS.with(|ankers| {
+                let mut jump_to_another_page = false;
 
-                    if let Some((_, ankerkind)) = ankers.borrow().iter().find(|&(rect, _)| {
-                        rect.x.to_f64_px() <= clicked_x
-                            && clicked_x <= rect.x.to_f64_px() + rect.width.to_f64_px()
-                            && rect.y.to_f64_px() <= clicked_y
-                            && clicked_y <= rect.y.to_f64_px() + rect.height.to_f64_px()
-                    }) {
-                        match ankerkind {
-                            &AnkerKind::URL(ref url) => {
-                                jump_to_another_page = true;
-                                update_html_source(url.to_string());
-                                overlay.get_children()[0].queue_draw(); // [0] is DrawingArea
-                            }
-                            &AnkerKind::URLFragment(ref id) => {
-                                URL_FRAGMENTS.with(|ufs| {
-                                    if let Some(content_y) = ufs.borrow().get(id) {
-                                        // TODO: Makes no sense.
-                                        let mut adjustment = overlay
-                                            .get_parent()
-                                            .unwrap()
-                                            .get_parent()
-                                            .unwrap()
-                                            .downcast::<gtk::ScrolledWindow>()
-                                            .unwrap()
-                                            .get_vadjustment()
-                                            .unwrap();
-                                        adjustment.set_value(*content_y);
-                                    }
-                                });
-                            }
-                        };
-                    }
+                if let Some((_, ankerkind)) = ankers.borrow().iter().find(|&(rect, _)| {
+                    rect.x.to_f64_px() <= clicked_x
+                        && clicked_x <= rect.x.to_f64_px() + rect.width.to_f64_px()
+                        && rect.y.to_f64_px() <= clicked_y
+                        && clicked_y <= rect.y.to_f64_px() + rect.height.to_f64_px()
+                }) {
+                    match ankerkind {
+                        &AnkerKind::URL(ref url) => {
+                            jump_to_another_page = true;
+                            update_html_source(url.to_string());
 
-                    if jump_to_another_page {
-                        ankers.borrow_mut().clear();
-                        SURFACE_CACHE.with(|sc| *sc.borrow_mut() = None);
-                    }
-                });
-                Some(true.to_value())
-            })
-            .unwrap();
+                            overlay.children()[0].queue_draw(); // [0] is DrawingArea
+                        }
+                        &AnkerKind::URLFragment(ref id) => {
+                            URL_FRAGMENTS.with(|ufs| {
+                                if let Some(content_y) = ufs.borrow().get(id) {
+                                    // TODO: Makes no sense.
+                                    let mut adjustment = overlay
+                                        .parent()
+                                        .unwrap()
+                                        .parent()
+                                        .unwrap()
+                                        .downcast::<gtk::ScrolledWindow>()
+                                        .unwrap()
+                                        .vadjustment();
+                                    adjustment.set_value(*content_y);
+                                }
+                            });
+                        }
+                    };
+                }
+
+                if jump_to_another_page {
+                    ankers.borrow_mut().clear();
+                    SURFACE_CACHE.with(|sc| *sc.borrow_mut() = None);
+                }
+            });
+            Some(true.to_value())
+        });
 
         window.connect_configure_event(|_, _| {
             unsafe {
@@ -268,8 +231,8 @@ impl RenderingWindow {
                         }
                     }
 
-                    let pango_ctx = widget.create_pango_context().unwrap();
-                    let mut pango_layout = pango::Layout::new(&pango_ctx);
+                    let pango_ctx = widget.create_pango_context();
+                    let mut pango_layout = gtk::pango::Layout::new(&pango_ctx);
 
                     let items = f(widget);
                     let content_rect =
@@ -280,9 +243,7 @@ impl RenderingWindow {
                         };
 
                     widget
-                        .get_parent()
-                        .unwrap()
-                        .downcast::<gtk::Overlay>()
+                        .parent()
                         .unwrap()
                         .set_size_request(-1, content_rect.height.ceil_to_px());
                     widget.set_size_request(-1, content_rect.height.ceil_to_px());
@@ -291,10 +252,11 @@ impl RenderingWindow {
                         cairo::Format::ARgb32,
                         content_rect.width.to_px(),
                         content_rect.height.to_px(),
-                    ).unwrap();
-                    let ctx = cairo::Context::new(&surface);
+                    )
+                    .unwrap();
+                    let ctx = cairo::Context::new(&surface).unwrap();
                     for item in &items {
-                        render_item(&ctx, &mut pango_layout, /* layout, */ &item.command);
+                        render_item(&ctx, &pango_layout, /* layout, */ &item.command);
                     }
 
                     // let radial = cairo::LinearGradient::new(0.0, 0.0, 0.0, 200.0);
@@ -307,9 +269,9 @@ impl RenderingWindow {
                     surface
                 });
 
-                let (_, redraw_start_y, redraw_end_x, redraw_end_y) = cairo_context.clip_extents();
-
-                cairo_context.set_source_surface(&surface, 0.0, 0.0);
+                let (_, redraw_start_y, redraw_end_x, redraw_end_y) =
+                    cairo_context.clip_extents().unwrap();
+                cairo_context.set_source_surface(&surface.as_ref(), 0.0, 0.0);
                 cairo_context.rectangle(
                     0.0,
                     redraw_start_y,
@@ -337,7 +299,7 @@ impl RenderingWindow {
 
 fn render_item(
     ctx: &Context,
-    pango_layout: &mut pango::Layout,
+    pango_layout: &pango::Layout,
     // layout: &gtk::Layout,
     item: &DisplayCommand,
 ) {
@@ -382,13 +344,12 @@ fn render_item(
                 for decoration in decorations {
                     match decoration {
                         &TextDecoration::Underline => {
-                            attr_list.insert(
-                                pango::Attribute::new_underline(pango::Underline::Single).unwrap(),
-                            );
+                            attr_list
+                                .insert(pango::AttrInt::new_underline(pango::Underline::Single));
                         }
                         &TextDecoration::Overline => unimplemented!(),
                         &TextDecoration::LineThrough => {
-                            attr_list.insert(pango::Attribute::new_strikethrough(true).unwrap());
+                            attr_list.insert(pango::AttrInt::new_strikethrough(true))
                         }
                         &TextDecoration::None => {}
                     }
@@ -396,7 +357,7 @@ fn render_item(
 
                 pango_layout.set_text(text.as_str());
                 pango_layout.set_attributes(Some(&attr_list));
-                pango_layout.set_font_description(Some(&*font_desc));
+                pango_layout.set_font_description(Some(&font_desc));
             });
 
             ctx.set_source_rgba(

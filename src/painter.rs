@@ -4,8 +4,8 @@ use dom::{ElementData, LayoutType, NodeType};
 use css::{Color, TextDecoration, BLACK};
 use app_units::Au;
 
-use gdk_pixbuf;
 use gtk;
+use gtk::{gdk_pixbuf};
 
 use window::{AnkerKind, ANKERS, URL_FRAGMENTS};
 

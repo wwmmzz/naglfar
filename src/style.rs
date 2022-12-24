@@ -1,4 +1,4 @@
-use css::{Color, TextDecoration, Unit, Value, pt2px};
+use css::{pt2px, Color, TextDecoration, Unit, Value};
 use font::{FontSlant, FontWeight};
 
 use std::collections::HashMap;
@@ -149,7 +149,9 @@ impl Style {
             self.cached.padding.2.clone(),
             self.cached.padding.3.clone(),
         ) {
-            (Some(top), Some(right), Some(bottom), Some(left)) => return (top, right, bottom, left),
+            (Some(top), Some(right), Some(bottom), Some(left)) => {
+                return (top, right, bottom, left)
+            }
             _ => {}
         }
 
@@ -157,7 +159,8 @@ impl Style {
         let zero = Value::Length(0.0, Unit::Px);
 
         let mut padding_top = self.value("padding-top").and_then(|x| Some(x[0].clone()));
-        let mut padding_bottom = self.value("padding-bottom")
+        let mut padding_bottom = self
+            .value("padding-bottom")
             .and_then(|x| Some(x[0].clone()));
         let mut padding_left = self.value("padding-left").and_then(|x| Some(x[0].clone()));
         let mut padding_right = self.value("padding-right").and_then(|x| Some(x[0].clone()));
@@ -217,7 +220,9 @@ impl Style {
             self.cached.margin.2.clone(),
             self.cached.margin.3.clone(),
         ) {
-            (Some(top), Some(right), Some(bottom), Some(left)) => return (top, right, bottom, left),
+            (Some(top), Some(right), Some(bottom), Some(left)) => {
+                return (top, right, bottom, left)
+            }
             _ => {}
         }
 
@@ -284,32 +289,43 @@ impl Style {
             self.cached.border_width.2.clone(),
             self.cached.border_width.3.clone(),
         ) {
-            (Some(top), Some(right), Some(bottom), Some(left)) => return (top, right, bottom, left),
+            (Some(top), Some(right), Some(bottom), Some(left)) => {
+                return (top, right, bottom, left)
+            }
             _ => {}
         }
 
         // border has initial value 0.
         let zero = Value::Length(0.0, Unit::Px);
 
-        let mut border_top = self.value("border-top-width")
+        let mut border_top = self
+            .value("border-top-width")
             .and_then(|x| Some(x[0].clone()));
-        let mut border_bottom = self.value("border-bottom-width")
+        let mut border_bottom = self
+            .value("border-bottom-width")
             .and_then(|x| Some(x[0].clone()));
-        let mut border_left = self.value("border-left-width")
+        let mut border_left = self
+            .value("border-left-width")
             .and_then(|x| Some(x[0].clone()));
-        let mut border_right = self.value("border-right-width")
+        let mut border_right = self
+            .value("border-right-width")
             .and_then(|x| Some(x[0].clone()));
 
         macro_rules! return_if_possible {
             () => {
-                if border_top.is_some() && border_bottom.is_some()
-                    && border_left.is_some() && border_right.is_some() {
+                if border_top.is_some()
+                    && border_bottom.is_some()
+                    && border_left.is_some()
+                    && border_right.is_some()
+                {
                     return (
-                        border_top.unwrap(), border_right.unwrap(),
-                        border_bottom.unwrap(), border_left.unwrap(),
+                        border_top.unwrap(),
+                        border_right.unwrap(),
+                        border_bottom.unwrap(),
+                        border_left.unwrap(),
                     );
                 }
-            }
+            };
         }
 
         return_if_possible!();
@@ -346,17 +362,19 @@ impl Style {
 
         return_if_possible!();
 
-        macro_rules! f { ($name:expr, $var:expr) => {
-            if let Some(border_info) = self.value($name) {
-                for border in border_info {
-                    if let &Value::Length(_, _) = &border {
-                        $var.get_or_insert_with(|| border.clone());
-                        break;
+        macro_rules! f {
+            ($name:expr, $var:expr) => {
+                if let Some(border_info) = self.value($name) {
+                    for border in border_info {
+                        if let &Value::Length(_, _) = &border {
+                            $var.get_or_insert_with(|| border.clone());
+                            break;
+                        }
                     }
                 }
-            }
-            return_if_possible!();
-        } }
+                return_if_possible!();
+            };
+        }
 
         f!("border-top", border_top);
         f!("border-bottom", border_bottom);
@@ -397,7 +415,8 @@ impl Style {
     }
 
     pub fn border_color(&mut self) -> (Option<Color>, Option<Color>, Option<Color>, Option<Color>) {
-        if self.cached.border_color.0.is_some() || self.cached.border_color.1.is_some()
+        if self.cached.border_color.0.is_some()
+            || self.cached.border_color.1.is_some()
             || self.cached.border_color.2.is_some()
             || self.cached.border_color.3.is_some()
         {
@@ -410,23 +429,26 @@ impl Style {
         }
 
         let mut border_top = self.value("border-top-color").and_then(|x| x[0].to_color());
-        let mut border_bottom = self.value("border-bottom-color")
+        let mut border_bottom = self
+            .value("border-bottom-color")
             .and_then(|x| x[0].to_color());
-        let mut border_left = self.value("border-left-color")
+        let mut border_left = self
+            .value("border-left-color")
             .and_then(|x| x[0].to_color());
-        let mut border_right = self.value("border-right-color")
+        let mut border_right = self
+            .value("border-right-color")
             .and_then(|x| x[0].to_color());
 
         macro_rules! return_if_possible {
             () => {
-                if border_top.is_some() && border_bottom.is_some()
-                    && border_left.is_some() && border_right.is_some() {
-                    return (
-                        border_top, border_right,
-                        border_bottom, border_left,
-                    );
+                if border_top.is_some()
+                    && border_bottom.is_some()
+                    && border_left.is_some()
+                    && border_right.is_some()
+                {
+                    return (border_top, border_right, border_bottom, border_left);
                 }
-            }
+            };
         }
 
         if let Some(border) = self.value("border-color") {
@@ -461,21 +483,24 @@ impl Style {
 
         return_if_possible!();
 
-        macro_rules! f { ($name:expr, $var:expr) => {
-            if let Some(border_info) = self.value($name) {
-                if let Some(border_color) = (|| {
-                    for border in border_info {
-                        let color = border.to_color();
-                        if color.is_some() { return color; }
+        macro_rules! f {
+            ($name:expr, $var:expr) => {
+                if let Some(border_info) = self.value($name) {
+                    if let Some(border_color) = (|| {
+                        for border in border_info {
+                            let color = border.to_color();
+                            if color.is_some() {
+                                return color;
+                            }
+                        }
+                        None
+                    })() {
+                        $var.get_or_insert_with(|| border_color.clone());
                     }
-                    None
-                })()
-                {
-                    $var.get_or_insert_with(|| border_color.clone());
                 }
-            }
-            return_if_possible!();
-        } }
+                return_if_possible!();
+            };
+        }
 
         f!("border-top", border_top);
         f!("border-bottom", border_bottom);
@@ -491,8 +516,7 @@ impl Style {
                     }
                 }
                 None
-            })()
-            {
+            })() {
                 border_top.get_or_insert_with(|| border_color.clone());
                 border_right.get_or_insert_with(|| border_color.clone());
                 border_bottom.get_or_insert_with(|| border_color.clone());
@@ -599,10 +623,10 @@ impl Value {
 
 #[test]
 fn test1() {
-    use html;
     use css;
-    use std::path::Path;
     use default_style::*;
+    use html;
+    use std::path::Path;
 
     let src = "<html>
                  <head>

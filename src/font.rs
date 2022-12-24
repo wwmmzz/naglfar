@@ -1,23 +1,21 @@
-use cairo;
-use pango;
-use pangocairo;
+
 
 use css::px2pt;
 
 use std::cell::RefCell;
-use pango::{ContextExt, LayoutExt};
-
+use gtk::pango::{ Layout,FontDescription};
+use gtk::{cairo,pango};
 use app_units::Au;
 
 thread_local!(
-    pub static PANGO_LAYOUT: RefCell<pango::Layout> = {
+    pub static PANGO_LAYOUT: RefCell<Layout> = {
         let surface = cairo::ImageSurface::create(cairo::Format::Rgb24, 0, 0).unwrap();
-        let ctx = pangocairo::functions::create_context(&cairo::Context::new(&surface)).unwrap();
-        let layout = pango::Layout::new(&ctx);
+        let ctx = pangocairo::functions::create_context(&cairo::Context::new(&surface).unwrap());
+        let layout = Layout::new(&ctx);
         RefCell::new(layout)
     };
-    pub static FONT_DESC: RefCell<pango::FontDescription> = {
-        RefCell::new(pango::FontDescription::from_string("sans-serif normal 16"))
+    pub static FONT_DESC: RefCell<FontDescription> = {
+        RefCell::new(FontDescription::from_string("sans-serif normal 16"))
     }
 );
 
@@ -71,7 +69,7 @@ impl Font {
         PANGO_LAYOUT.with(|layout| {
             let layout = layout.borrow_mut();
             layout.set_text(text);
-            pango::units_to_double(layout.get_size().0)
+            pango::units_to_double(layout.size().0)
         })
     }
 
@@ -79,13 +77,12 @@ impl Font {
         FONT_DESC.with(|font_desc| {
             let font_desc = font_desc.borrow();
             PANGO_LAYOUT.with(|layout| {
-                let ctx = layout.borrow_mut().get_context().unwrap();
+                let ctx = layout.borrow_mut().context();
                 let metrics =
-                    ctx.get_metrics(Some(&*font_desc), Some(&pango::Language::from_string("")))
-                        .unwrap();
+                    ctx.metrics(Some(&*font_desc), Some(&pango::Language::from_string("")));
                 (
-                    Au::from_f64_px(pango::units_to_double(metrics.get_ascent()) as f64),
-                    Au::from_f64_px(pango::units_to_double(metrics.get_descent()) as f64),
+                    Au::from_f64_px(pango::units_to_double(metrics.ascent()) as f64),
+                    Au::from_f64_px(pango::units_to_double(metrics.descent()) as f64),
                 )
             })
         })
@@ -108,7 +105,7 @@ impl Font {
                 }
 
                 layout.set_text(c.to_string().as_str());
-                let c_width = pango::units_to_double(layout.get_size().0);
+                let c_width = pango::units_to_double(layout.size().0);
                 text_width += c_width;
 
                 if text_width > max_width {

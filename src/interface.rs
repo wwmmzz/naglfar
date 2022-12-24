@@ -10,7 +10,6 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 extern crate gtk;
-use gtk::WidgetExt;
 
 extern crate app_units;
 use app_units::Au;
@@ -88,10 +87,10 @@ use std::rc::Rc;
 
 thread_local!(
     static LAYOUT_SAVER: RefCell<(Au, Au, painter::DisplayList)> =
-        { RefCell::new((Au(0), Au(0), vec![])) };
-    static HTML_SRC_URL: RefCell<Option<String>> = { RefCell::new(None) };
-    static HTML_TREE: Rc<RefCell<Option<dom::Node>>> = { Rc::new(RefCell::new(None)) };
-    static STYLESHEET: Rc<RefCell<Option<css::Stylesheet>>> = { Rc::new(RefCell::new(None)) };
+        RefCell::new((Au(0), Au(0), vec![]));
+    static HTML_SRC_URL: RefCell<Option<String>> = RefCell::new(None);
+    static HTML_TREE: Rc<RefCell<Option<dom::Node>>> = Rc::new(RefCell::new(None));
+    static STYLESHEET: Rc<RefCell<Option<css::Stylesheet>>> = Rc::new(RefCell::new(None));
 );
 
 static mut SRC_UPDATED: bool = false;
@@ -145,11 +144,11 @@ pub fn update_html_source(html_src: String) {
 pub fn run_with_url(html_src: String) {
     let main_browser_process = ::std::thread::spawn(|| {
         update_html_source(html_src);
-
+        
         window::render(move |widget| {
             let mut viewport: layout::Dimensions = ::std::default::Default::default();
-            viewport.content.width = Au::from_f64_px(widget.get_allocated_width() as f64);
-            viewport.content.height = Au::from_f64_px(widget.get_allocated_height() as f64);
+            viewport.content.width = Au::from_f64_px(700.0);
+            viewport.content.height = Au::from_f64_px(500.0);
 
             LAYOUT_SAVER.with(|x| {
                 let (ref mut last_width, ref mut last_height, ref mut last_displays) =
@@ -170,10 +169,10 @@ pub fn run_with_url(html_src: String) {
                     let html_tree = HTML_TREE.with(|h| (*h.borrow()).clone().unwrap());
                     let stylesheet = STYLESHEET.with(|s| (*s.borrow()).clone().unwrap());
                     let mut layout_tree = layout::layout_tree(&html_tree, &stylesheet, viewport);
-                    // debug_println!("LAYOUT:\n{}", layout_tree);
+                    debug_println!("LAYOUT:\n{:#?}", layout_tree);
 
                     let display_command = painter::build_display_list(&mut layout_tree);
-                    // debug_println!("DISPLAY:\n{:?}", display_command);
+                    debug_println!("DISPLAY:\n{:#?}", display_command);
 
                     *last_displays = display_command.clone();
 

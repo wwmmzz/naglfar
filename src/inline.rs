@@ -8,8 +8,7 @@ use std::ops::Range;
 use std::collections::{HashMap, VecDeque};
 use std::cmp::max;
 
-use gdk_pixbuf::PixbufExt;
-use gdk_pixbuf;
+use gtk::gdk_pixbuf;
 
 use app_units::Au;
 
@@ -629,15 +628,15 @@ pub fn get_image(node: &Node, imgdata: &mut ImageData, containing_block: Dimensi
         (Some(width), Some(height)) => (Au::from_f64_px(width), Au::from_f64_px(height)),
         (Some(width), None) => (
             Au::from_f64_px(width),
-            Au::from_f64_px(width * (pixbuf.get_height() as f64 / pixbuf.get_width() as f64)),
+            Au::from_f64_px(width * (pixbuf.height() as f64 / pixbuf.width() as f64)),
         ),
         (None, Some(height)) => (
-            Au::from_f64_px(height * (pixbuf.get_width() as f64 / pixbuf.get_height() as f64)),
+            Au::from_f64_px(height * (pixbuf.width() as f64 / pixbuf.height() as f64)),
             Au::from_f64_px(height),
         ),
         (None, None) => (
-            Au::from_f64_px(pixbuf.get_width() as f64),
-            Au::from_f64_px(pixbuf.get_height() as f64),
+            Au::from_f64_px(pixbuf.width() as f64),
+            Au::from_f64_px(pixbuf.height() as f64),
         ),
     };
 
@@ -664,7 +663,7 @@ pub fn get_pixbuf(node: &Node) -> gdk_pixbuf::Pixbuf {
             .entry(image_url.clone())
             .or_insert_with(|| {
                 let (cache_name, _) = download(image_url.as_str());
-                gdk_pixbuf::Pixbuf::new_from_file(cache_name.as_str()).unwrap()
+                gdk_pixbuf::Pixbuf::from_file(cache_name.as_str()).unwrap()
             })
             .clone()
     })
