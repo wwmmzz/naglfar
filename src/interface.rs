@@ -1,5 +1,6 @@
 use css;
 use dom;
+use gtk::traits::WidgetExt;
 use html;
 use layout;
 use painter;
@@ -147,8 +148,8 @@ pub fn run_with_url(html_src: String) {
         
         window::render(move |widget| {
             let mut viewport: layout::Dimensions = ::std::default::Default::default();
-            viewport.content.width = Au::from_f64_px(700.0);
-            viewport.content.height = Au::from_f64_px(500.0);
+            viewport.content.width = Au::from_f64_px(widget.allocated_width() as f64);
+            viewport.content.height = Au::from_f64_px(widget.allocated_height() as f64);
 
             LAYOUT_SAVER.with(|x| {
                 let (ref mut last_width, ref mut last_height, ref mut last_displays) =
@@ -169,10 +170,10 @@ pub fn run_with_url(html_src: String) {
                     let html_tree = HTML_TREE.with(|h| (*h.borrow()).clone().unwrap());
                     let stylesheet = STYLESHEET.with(|s| (*s.borrow()).clone().unwrap());
                     let mut layout_tree = layout::layout_tree(&html_tree, &stylesheet, viewport);
-                    debug_println!("LAYOUT:\n{:#?}", layout_tree);
+                    // debug_println!("LAYOUT:\n{:#?}", layout_tree);
 
                     let display_command = painter::build_display_list(&mut layout_tree);
-                    debug_println!("DISPLAY:\n{:#?}", display_command);
+                    // debug_println!("DISPLAY:\n{:#?}", display_command);
 
                     *last_displays = display_command.clone();
 
